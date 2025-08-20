@@ -1,0 +1,54 @@
+name: CI/CD Trigger
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  trigger-central-ci:
+    name: Trigger Central CI/CD
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check trigger conditions
+      id: check-trigger 
+      run: |
+        if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/v* ]]; then
+          echo "should_trigger=true" >> $GITHUB_OUTPUT
+          echo "build_type=tag" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.event.head_commit.message }}" == *"@ci"* ]]; then
+          echo "should_trigger=true" >> $GITHUB_OUTPUT
+          echo "build_type=commit" >> $GITHUB_OUTPUT
+        else
+          echo "should_trigger=false" >> $GITHUB_OUTPUT
+          echo "build_type=none" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Trigger central pipeline
+      if: steps.check-trigger.outputs.should_trigger == 'true'
+      environment: prod
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.CICD_PAT }}
+        script: |
+          await github.rest.repos.createDispatchEvent({
+            owner: 'vladaderina',
+            repo: 'MAD-demo',
+            event_type: 'mad-service-trigger',
+            client_payload: {
+              source_repo: '${{ github.repository }}',
+              source_ref: '${{ github.ref }}',
+              source_sha: '${{ github.sha }}',
+              event_type: '${{ github.event_name }}',
+              build_type: '${{ steps.check-trigger.outputs.build_type }}',
+              service_name: '${{ github.event.repository.name }}'
+            }
+          });
+
+    - name: Log skipped trigger
+      if: steps.check-trigger.outputs.should_trigger == 'false'
+      run: echo "⏩ Skipping CI/CD trigger for ${{ github.event_name }} on ${{ github.ref }}"

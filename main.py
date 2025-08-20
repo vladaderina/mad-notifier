@@ -290,7 +290,7 @@ async def main():
     notifier = AnomalyNotifier()
     
     try:
-        await notifier.start_server(port=args.port)
+        await notifier.start_server()
         while True:
             await asyncio.sleep(3600)  # Бесконечный цикл
     except KeyboardInterrupt:
