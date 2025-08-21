@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class AnomalyNotifier:
-    """Сервис уведомлений об аномалиях с HTTP API."""
+    """Сервис уведомлений об аномалиях по HTTP API."""
 
     def __init__(self):
         self.jinja_env = Environment()
